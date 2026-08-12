@@ -2,7 +2,17 @@
 
 这是一个使用 Rsbuild、React 和 Base UI 构建的静态项目。
 
-查看器会使用浏览器 `localStorage` 在当前设备保存：最后查看的地图，以及每张地图各自的缩放比例和视野中心。URL hash 中明确指定的地图优先于本地记录。地图抽屉开合状态不缓存，选择地图后会自动关闭。
+## 查看器功能
+
+- 分组地图抽屉，桌面端和移动端选择地图后自动关闭。
+- 鼠标拖拽、滚轮缩放、双击缩放，以及手机双指缩放。
+- macOS 触控板捏合缩放：阻止浏览器页面缩放，改为以手势中心缩放地图；兼容 Chromium 和 Safari 手势事件。
+- 右下角滑杆、百分比输入框和适屏按钮可精确控制 100%–800% 缩放；顶部标题和右上角适屏按钮也可快速复位。
+- 快速预览与高清原图双向切换；切换过程中保持当前视野和缩放不跳变。
+- 高清加载成功后优先复用浏览器缓存；自动恢复高清时延迟显示加载提示，缓存命中通常不会闪烁。
+- URL hash 记录当前地图，方便刷新恢复和分享链接。
+
+查看器会使用浏览器 `localStorage` 在当前设备保存：最后查看的地图、每张地图各自的缩放比例和视野中心，以及每张地图选择的预览/高清画质。URL hash 中明确指定的地图优先于本地记录。地图抽屉开合状态不缓存。
 
 ## 开发
 
@@ -126,9 +136,18 @@ npm run deploy:s3 -- --endpoint https://S3_ENDPOINT --bucket BUCKET --dry-run
 
 # 不重新构建，直接上传当前 dist
 npm run deploy:s3 -- --endpoint https://S3_ENDPOINT --bucket BUCKET --no-build
+
+# 同时上传 assets/maps 中的高清原图，并补齐长期缓存响应头
+npm run deploy:s3:all
 ```
 
-上传脚本会为 `index.html` 设置 `no-cache`，其余带稳定/内容哈希文件名的静态资源设置一年 immutable 缓存。它会覆盖同名对象，但不会删除 bucket 中旧的哈希文件，也不会自动上传 `assets/maps/` 中的高清原图。
+上传脚本会为 `index.html` 设置 `no-cache`，其余带稳定/内容哈希文件名的静态资源设置一年 immutable 缓存。常规 `deploy:s3` 只上传 `dist/`；需要新增、更新高清原图或补齐其缓存响应头时使用 `deploy:s3:all`。上传失败会对单个文件最多重试 4 次，适合 Garage 前置网关偶发超时的情况。它会覆盖同名对象，但不会删除 bucket 中旧的哈希文件。
+
+注意：`--endpoint` 使用 Garage 的 S3 API 地址，不是 website 访问地址。完整参数见：
+
+```sh
+npm run deploy:s3 -- --help
+```
 
 ## Git 提交范围
 
@@ -141,9 +160,3 @@ npm run deploy:s3 -- --endpoint https://S3_ENDPOINT --bucket BUCKET --no-build
 - `.env*`、密钥、日志和压缩包
 
 首次 clone 后需要自行将高清图放入 `assets/maps/`，再执行 `npm run maps:generate`。
-
-注意：`--endpoint` 使用 Garage 的 S3 API 地址，不是 website 访问地址。完整参数见：
-
-```sh
-npm run deploy:s3 -- --help
-```

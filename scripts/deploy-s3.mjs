@@ -27,6 +27,7 @@ Options/environment:
   --bucket / S3_BUCKET      Bucket name (required)
   --region / S3_REGION      S3 region (default: garage)
   --prefix / S3_PREFIX      Optional object prefix
+  --include-originals       Also upload assets/maps originals with immutable caching
   --no-build                Upload the existing dist without rebuilding
   --dry-run                 Show files without uploading
 
@@ -41,6 +42,7 @@ const bucket = option('--bucket') ?? process.env.S3_BUCKET;
 const region = option('--region') ?? process.env.S3_REGION ?? 'garage';
 const prefix = (option('--prefix') ?? process.env.S3_PREFIX ?? '').replace(/^\/+|\/+$/g, '');
 const dryRun = args.includes('--dry-run');
+const includeOriginals = args.includes('--include-originals');
 const shouldBuild = !args.includes('--no-build');
 
 if (!endpoint) throw new Error('Missing S3 endpoint. Pass --endpoint or set S3_ENDPOINT.');
@@ -81,11 +83,43 @@ function contentType(file) {
   return types[extname(file).toLowerCase()] ?? 'application/octet-stream';
 }
 
+const wait = (milliseconds) => new Promise((accept) => setTimeout(accept, milliseconds));
+
+async function putFile(client, { file, key, relativePath, size, cacheControl }) {
+  const attempts = 4;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await client.send(new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: createReadStream(file),
+        ContentLength: size,
+        ContentType: contentType(file),
+        CacheControl: cacheControl,
+      }));
+      return;
+    } catch (error) {
+      if (attempt === attempts) throw error;
+      const status = error?.$metadata?.httpStatusCode;
+      console.warn(`retrying ${relativePath} after ${status ? `HTTP ${status}` : 'upload error'} (${attempt}/${attempts})`);
+      await wait(500 * (2 ** (attempt - 1)));
+    }
+  }
+}
+
 if (shouldBuild) await run(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build']);
 
 const distRoot = resolve(projectRoot, 'dist');
-const files = await walk(distRoot);
-if (files.length === 0) throw new Error(`No files found in ${distRoot}.`);
+const distFiles = await walk(distRoot);
+if (distFiles.length === 0) throw new Error(`No files found in ${distRoot}.`);
+const originalsRoot = resolve(projectRoot, 'assets/maps');
+const originalFiles = includeOriginals
+  ? (await walk(originalsRoot)).filter((file) => /^\.(?:png|jpe?g)$/i.test(extname(file)))
+  : [];
+const uploads = [
+  ...distFiles.map((file) => ({ file, relativePath: relative(distRoot, file).split(sep).join('/') })),
+  ...originalFiles.map((file) => ({ file, relativePath: relative(originalsRoot, file).split(sep).join('/') })),
+];
 
 const client = dryRun ? null : new S3Client({
   endpoint,
@@ -95,12 +129,11 @@ const client = dryRun ? null : new S3Client({
   responseChecksumValidation: 'WHEN_REQUIRED',
 });
 let cursor = 0;
-const concurrency = Math.min(6, files.length);
+const concurrency = Math.min(6, uploads.length);
 
 async function uploadWorker() {
-  while (cursor < files.length) {
-    const file = files[cursor++];
-    const relativePath = relative(distRoot, file).split(sep).join('/');
+  while (cursor < uploads.length) {
+    const { file, relativePath } = uploads[cursor++];
     const key = prefix ? `${prefix}/${relativePath}` : relativePath;
     const cacheControl = relativePath === 'index.html'
       ? 'no-cache'
@@ -108,16 +141,9 @@ async function uploadWorker() {
     const size = (await stat(file)).size;
     console.log(`${dryRun ? 'would upload' : 'uploading'} s3://${bucket}/${key} (${size} bytes)`);
     if (!client) continue;
-    await client.send(new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: createReadStream(file),
-      ContentLength: size,
-      ContentType: contentType(file),
-      CacheControl: cacheControl,
-    }));
+    await putFile(client, { file, key, relativePath, size, cacheControl });
   }
 }
 
 await Promise.all(Array.from({ length: concurrency }, uploadWorker));
-console.log(`\n${dryRun ? 'Planned' : 'Uploaded'} ${files.length} files ${dryRun ? 'for' : 'to'} s3://${bucket}/${prefix}`);
+console.log(`\n${dryRun ? 'Planned' : 'Uploaded'} ${uploads.length} files ${dryRun ? 'for' : 'to'} s3://${bucket}/${prefix}`);

@@ -2,9 +2,9 @@ import { Dialog, Slider, Tooltip } from '@base-ui/react';
 import {
   Expand,
   Focus,
+  ImageMinus,
   ImageUpscale,
   Map as MapIcon,
-  Maximize2,
   Minus,
   Plus,
   X,
@@ -12,7 +12,6 @@ import {
 import {
   PointerEvent as ReactPointerEvent,
   ReactNode,
-  WheelEvent as ReactWheelEvent,
   forwardRef,
   memo,
   useCallback,
@@ -41,6 +40,8 @@ type Gesture =
   | { type: 'pan'; pointer: Point; origin: Point }
   | { type: 'pinch'; distance: number; scale: number; center: Point; origin: Point };
 type ZoomControlsHandle = { sync: (value: number) => void };
+type TrackpadGestureEvent = Event & { clientX: number; clientY: number; scale: number };
+type TrackpadGesture = { percent: number; point: Point };
 
 const MIN_ZOOM = 100;
 const MAX_ZOOM = 800;
@@ -242,10 +243,12 @@ export function App() {
   const transformRef = useRef<Transform>({ fitScale: 1, scale: 1, x: 0, y: 0 });
   const pointersRef = useRef(new Map<number, Point>());
   const gestureRef = useRef<Gesture | null>(null);
+  const trackpadGestureRef = useRef<TrackpadGesture | null>(null);
   const tokenRef = useRef(1);
   const hudTimerRef = useRef<number | null>(null);
   const zoomFrameRef = useRef<number | null>(null);
   const persistViewTimerRef = useRef<number | null>(null);
+  const loadingTimerRef = useRef<number | null>(null);
   const zoomControlsRef = useRef<ZoomControlsHandle>(null);
   const preferencesRef = useRef(initialPreferences);
 
@@ -256,7 +259,7 @@ export function App() {
   const [pending, setPending] = useState<Layer | null>(() => (
     mapLayer(firstMap, 1, initialPreferences)
   ));
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initialPreferences.originalMapIds.includes(firstMap.id));
   const [loadingText, setLoadingText] = useState(() => (
     initialPreferences.originalMapIds.includes(firstMap.id)
       ? `正在恢复 ${firstMap.title} 高清原图`
@@ -406,6 +409,29 @@ export function App() {
     setDrawerOpen(open);
   }, []);
 
+  const beginLoading = useCallback((text: string, deferred = false) => {
+    if (loadingTimerRef.current !== null) clearTimeout(loadingTimerRef.current);
+    setLoadingText(text);
+    if (!deferred) {
+      setLoading(true);
+      return;
+    }
+    setLoading(false);
+    loadingTimerRef.current = window.setTimeout(() => setLoading(true), 450);
+  }, []);
+
+  const finishLoading = useCallback(() => {
+    if (loadingTimerRef.current !== null) clearTimeout(loadingTimerRef.current);
+    loadingTimerRef.current = null;
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (pending?.originalMode === 'preferred') {
+      beginLoading(`正在恢复 ${pending.map.title} 高清原图`, true);
+    }
+  }, []);
+
   const requestMap = useCallback((map: MapItem) => {
     if (currentRef.current?.map.id === map.id) {
       changeDrawerOpen(false);
@@ -415,27 +441,26 @@ export function App() {
     const token = ++tokenRef.current;
     const layer = mapLayer(map, token, preferencesRef.current);
     setPending(layer);
-    setLoadingText(layer.originalMode === 'preferred'
+    beginLoading(layer.originalMode === 'preferred'
       ? `正在恢复 ${map.title} 高清原图`
-      : `正在载入 ${map.title}`);
-    setLoading(true);
+      : `正在载入 ${map.title}`, layer.originalMode === 'preferred');
     changeDrawerOpen(false);
-  }, [changeDrawerOpen, persistView]);
+  }, [beginLoading, changeDrawerOpen, persistView]);
 
-  const loadOriginal = useCallback(() => {
-    if (!current || quality === 'original') return;
+  const toggleQuality = useCallback(() => {
+    if (!current || pending?.preserveView) return;
+    const nextQuality: Quality = quality === 'original' ? 'preview' : 'original';
     const token = ++tokenRef.current;
     setPending({
       token,
       map: current.map,
-      src: current.map.original,
-      quality: 'original',
+      src: nextQuality === 'original' ? current.map.original : current.map.preview,
+      quality: nextQuality,
       preserveView: true,
-      originalMode: 'manual',
+      originalMode: nextQuality === 'original' ? 'manual' : undefined,
     });
-    setLoadingText('正在载入高清原图');
-    setLoading(true);
-  }, [current, quality]);
+    beginLoading(nextQuality === 'original' ? '正在载入高清原图' : '正在切换快速预览');
+  }, [beginLoading, current, pending?.preserveView, quality]);
 
   const handleLayerLoad = useCallback(async (layer: Layer, element: HTMLImageElement) => {
     try {
@@ -456,7 +481,7 @@ export function App() {
     setPending(null);
     setActiveMap(layer.map);
     setQuality(layer.quality);
-    setLoading(false);
+    finishLoading();
     history.replaceState(null, '', `#${layer.map.id}`);
     syncZoom(Math.round((nextTransform.scale / nextTransform.fitScale) * 100));
     updatePreferences((currentPreferences) => ({
@@ -464,7 +489,7 @@ export function App() {
       lastMapId: layer.map.id,
       originalMapIds: layer.quality === 'original'
         ? [...new Set([...currentPreferences.originalMapIds, layer.map.id])]
-        : currentPreferences.originalMapIds,
+        : currentPreferences.originalMapIds.filter((mapId) => mapId !== layer.map.id),
     }));
 
     window.setTimeout(() => {
@@ -478,7 +503,7 @@ export function App() {
     };
     if ('requestIdleCallback' in window) window.requestIdleCallback(warm, { timeout: 1800 });
     else globalThis.setTimeout(warm, 700);
-  }, [restoreView, syncZoom, updatePreferences]);
+  }, [finishLoading, restoreView, syncZoom, updatePreferences]);
 
   const handleLayerError = useCallback((layer: Layer) => {
     if (layer.token !== tokenRef.current) return;
@@ -495,16 +520,15 @@ export function App() {
         quality: 'preview',
         preserveView: false,
       });
-      setLoadingText(`高清原图不可用，正在载入 ${layer.map.title} 预览`);
-      setLoading(true);
+      beginLoading(`高清原图不可用，正在载入 ${layer.map.title} 预览`);
       return;
     }
     setPending(null);
-    setLoading(false);
+    finishLoading();
     setToast(layer.quality === 'original'
       ? '高清原图加载失败，已继续保留预览图。'
       : '地图预览加载失败，已继续保留当前地图。');
-  }, [updatePreferences]);
+  }, [beginLoading, finishLoading, updatePreferences]);
 
   useEffect(() => {
     const media = matchMedia('(max-width: 760px)');
@@ -569,6 +593,7 @@ export function App() {
       if (hudTimerRef.current !== null) clearTimeout(hudTimerRef.current);
       if (zoomFrameRef.current !== null) cancelAnimationFrame(zoomFrameRef.current);
       if (persistViewTimerRef.current !== null) clearTimeout(persistViewTimerRef.current);
+      if (loadingTimerRef.current !== null) clearTimeout(loadingTimerRef.current);
     };
   }, [wakeHud]);
 
@@ -580,12 +605,62 @@ export function App() {
     return () => window.removeEventListener('pagehide', saveCurrentView);
   }, [persistView]);
 
-  const onWheel = (event: ReactWheelEvent) => {
-    event.preventDefault();
-    const currentTransform = transformRef.current;
-    const percent = currentTransform.scale / currentTransform.fitScale * 100;
-    zoomAt(percent * Math.exp(-event.deltaY * 0.00135), { x: event.clientX, y: event.clientY });
-  };
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    const isViewerControl = (target: EventTarget | null) => (
+      target instanceof Element && Boolean(target.closest('[data-viewer-control]'))
+    );
+    const onWheel = (event: WheelEvent) => {
+      if (isViewerControl(event.target)) return;
+      if (event.cancelable) event.preventDefault();
+      wakeHud();
+      const transform = transformRef.current;
+      const percent = transform.scale / transform.fitScale * 100;
+      const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * 16 : event.deltaY;
+      const sensitivity = event.ctrlKey ? 0.009 : 0.00135;
+      zoomAt(percent * Math.exp(-delta * sensitivity), { x: event.clientX, y: event.clientY });
+    };
+    const onGestureStart = (rawEvent: Event) => {
+      const event = rawEvent as TrackpadGestureEvent;
+      if (isViewerControl(event.target)) return;
+      if (event.cancelable) event.preventDefault();
+      const transform = transformRef.current;
+      trackpadGestureRef.current = {
+        percent: transform.scale / transform.fitScale * 100,
+        point: { x: event.clientX, y: event.clientY },
+      };
+      wakeHud();
+    };
+    const onGestureChange = (rawEvent: Event) => {
+      const event = rawEvent as TrackpadGestureEvent;
+      const gesture = trackpadGestureRef.current;
+      if (!gesture) return;
+      if (event.cancelable) event.preventDefault();
+      zoomAt(gesture.percent * event.scale, {
+        x: Number.isFinite(event.clientX) ? event.clientX : gesture.point.x,
+        y: Number.isFinite(event.clientY) ? event.clientY : gesture.point.y,
+      });
+    };
+    const onGestureEnd = (event: Event) => {
+      if (!trackpadGestureRef.current) return;
+      if (event.cancelable) event.preventDefault();
+      trackpadGestureRef.current = null;
+      if (currentRef.current) persistView(currentRef.current.map, transformRef.current);
+    };
+
+    viewer.addEventListener('wheel', onWheel, { passive: false });
+    viewer.addEventListener('gesturestart', onGestureStart, { passive: false });
+    viewer.addEventListener('gesturechange', onGestureChange, { passive: false });
+    viewer.addEventListener('gestureend', onGestureEnd, { passive: false });
+    return () => {
+      viewer.removeEventListener('wheel', onWheel);
+      viewer.removeEventListener('gesturestart', onGestureStart);
+      viewer.removeEventListener('gesturechange', onGestureChange);
+      viewer.removeEventListener('gestureend', onGestureEnd);
+    };
+  }, [persistView, wakeHud, zoomAt]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.target instanceof Element && event.target.closest('[data-viewer-control]')) return;
@@ -701,14 +776,16 @@ export function App() {
           </button>
 
           <div className="utility-actions hud">
-            <IconButton label="适应屏幕" onClick={() => resetView()}><Maximize2 size={17} /></IconButton>
+            <IconButton label="适应屏幕" onClick={() => resetView()}><Focus size={17} /></IconButton>
             <IconButton
-              label={quality === 'original' ? '当前已是高清原图' : '切换高清原图'}
+              label={pending?.preserveView
+                ? '正在切换画质'
+                : quality === 'original' ? '切换快速预览' : '切换高清原图'}
               className="accent"
-              disabled={quality === 'original'}
-              onClick={loadOriginal}
+              disabled={Boolean(pending?.preserveView)}
+              onClick={toggleQuality}
             >
-              <ImageUpscale size={17} />
+              {quality === 'original' ? <ImageMinus size={17} /> : <ImageUpscale size={17} />}
             </IconButton>
             <IconButton
               label={document.fullscreenElement ? '退出全屏' : '全屏查看'}
@@ -730,7 +807,6 @@ export function App() {
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerEnd}
-            onWheel={onWheel}
           >
             {layers.map((layer) => (
               <img

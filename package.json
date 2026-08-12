@@ -8,7 +8,8 @@
     "build": "rsbuild build",
     "preview": "rsbuild preview",
     "maps:generate": "node scripts/generate-maps.mjs",
-    "deploy:s3": "node scripts/deploy-s3.mjs"
+    "deploy:s3": "node scripts/deploy-s3.mjs",
+    "deploy:s3:all": "node scripts/deploy-s3.mjs --include-originals"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
