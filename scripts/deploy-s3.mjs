@@ -25,7 +25,7 @@ if (args.includes('--help') || args.includes('-h')) {
 Options/environment:
   --endpoint / S3_ENDPOINT   S3 API endpoint (required)
   --bucket / S3_BUCKET      Bucket name (required)
-  --region / S3_REGION      S3 region (default: garage)
+  --region / S3_REGION      S3 signing region (default: us-east-1)
   --prefix / S3_PREFIX      Optional object prefix
   --include-originals       Also upload assets/maps originals with immutable caching
   --no-build                Upload the existing dist without rebuilding
@@ -39,7 +39,7 @@ AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN or AWS_PROFILE.`);
 
 const endpoint = option('--endpoint') ?? process.env.S3_ENDPOINT;
 const bucket = option('--bucket') ?? process.env.S3_BUCKET;
-const region = option('--region') ?? process.env.S3_REGION ?? 'garage';
+const region = option('--region') ?? process.env.S3_REGION ?? 'us-east-1';
 const prefix = (option('--prefix') ?? process.env.S3_PREFIX ?? '').replace(/^\/+|\/+$/g, '');
 const dryRun = args.includes('--dry-run');
 const includeOriginals = args.includes('--include-originals');

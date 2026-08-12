@@ -10,6 +10,7 @@ thumbs/
 *.jpg
 *.jpeg
 *.webp
+!docs/screenshots/*.png
 
 # Local credentials and environment overrides
 .env
