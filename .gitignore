@@ -2,16 +2,6 @@
 node_modules/
 dist/
 
-# Local map source material and generated derivatives
-assets/
-previews/
-thumbs/
-*.png
-*.jpg
-*.jpeg
-*.webp
-!docs/screenshots/*.png
-
 # Local credentials and environment overrides
 .env
 .env.*

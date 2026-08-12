@@ -8,7 +8,7 @@ const projectRoot = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const originalRoot = resolve(projectRoot, 'assets/maps');
 const originalPattern = /\.(?:png|jpe?g)$/i;
 
-export default defineConfig({
+export default defineConfig(({ envMode }) => ({
   plugins: [pluginReact()],
   html: {
     title: '塔科夫地图终端',
@@ -22,6 +22,9 @@ export default defineConfig({
     copy: [
       { from: './previews', to: 'previews' },
       { from: './thumbs', to: 'thumbs' },
+      ...(envMode === 'pages'
+        ? [{ from: '*.{png,jpg,jpeg}', context: './assets/maps', to: '.' }]
+        : []),
     ],
     distPath: {
       root: 'dist',
@@ -42,4 +45,4 @@ export default defineConfig({
       });
     },
   },
-});
+}));

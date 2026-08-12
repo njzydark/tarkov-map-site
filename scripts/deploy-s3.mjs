@@ -27,7 +27,6 @@ Options/environment:
   --bucket / S3_BUCKET      Bucket name (required)
   --region / S3_REGION      S3 signing region (default: us-east-1)
   --prefix / S3_PREFIX      Optional object prefix
-  --include-originals       Also upload assets/maps originals with immutable caching
   --no-build                Upload the existing dist without rebuilding
   --dry-run                 Show files without uploading
 
@@ -42,7 +41,6 @@ const bucket = option('--bucket') ?? process.env.S3_BUCKET;
 const region = option('--region') ?? process.env.S3_REGION ?? 'us-east-1';
 const prefix = (option('--prefix') ?? process.env.S3_PREFIX ?? '').replace(/^\/+|\/+$/g, '');
 const dryRun = args.includes('--dry-run');
-const includeOriginals = args.includes('--include-originals');
 const shouldBuild = !args.includes('--no-build');
 
 if (!endpoint) throw new Error('Missing S3 endpoint. Pass --endpoint or set S3_ENDPOINT.');
@@ -112,14 +110,10 @@ if (shouldBuild) await run(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['r
 const distRoot = resolve(projectRoot, 'dist');
 const distFiles = await walk(distRoot);
 if (distFiles.length === 0) throw new Error(`No files found in ${distRoot}.`);
-const originalsRoot = resolve(projectRoot, 'assets/maps');
-const originalFiles = includeOriginals
-  ? (await walk(originalsRoot)).filter((file) => /^\.(?:png|jpe?g)$/i.test(extname(file)))
-  : [];
-const uploads = [
-  ...distFiles.map((file) => ({ file, relativePath: relative(distRoot, file).split(sep).join('/') })),
-  ...originalFiles.map((file) => ({ file, relativePath: relative(originalsRoot, file).split(sep).join('/') })),
-];
+const uploads = distFiles.map((file) => ({
+  file,
+  relativePath: relative(distRoot, file).split(sep).join('/'),
+}));
 
 const client = dryRun ? null : new S3Client({
   endpoint,

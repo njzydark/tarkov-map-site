@@ -43,6 +43,16 @@ npm run build
 npm run preview
 ```
 
+默认构建包含应用代码、预览图和缩略图，不重复复制高清原图，适合高清图片已经单独托管在相同公开路径的部署环境。
+
+需要生成包含高清原图的完整独立站点时使用：
+
+```sh
+npm run build:pages
+```
+
+这个构建会把 `assets/maps/` 中的原图复制到 `dist/` 根目录，适合 GitHub Pages 或其他一次性上传整个静态目录的服务。
+
 ## 地图素材
 
 原始地图存放在本地 `assets/maps/`。文件名需要以 ASCII 地图标识结尾：
@@ -104,10 +114,10 @@ Cache-Control: public, max-age=31536000, immutable
 
 ```text
 .
-├── assets/maps/          # 本地高清原图，不提交 Git
+├── assets/maps/          # 高清原图
 ├── docs/screenshots/     # README 截图
-├── previews/             # 自动生成的预览图，不提交 Git
-├── thumbs/               # 自动生成的缩略图，不提交 Git
+├── previews/             # 自动生成的预览图
+├── thumbs/               # 自动生成的缩略图
 ├── scripts/
 │   ├── generate-maps.mjs # 地图资源生成器
 │   └── deploy-s3.mjs     # 可选的 S3 上传工具
@@ -129,16 +139,10 @@ Cache-Control: public, max-age=31536000, immutable
 cp .env.example .env
 ```
 
-构建并上传 `dist/`：
+构建并上传默认的轻量 `dist/`：
 
 ```sh
 npm run deploy:s3
-```
-
-同时上传 `assets/maps/` 中的高清原图：
-
-```sh
-npm run deploy:s3:all
 ```
 
 上传工具会设置推荐的缓存响应头，支持 object prefix、dry-run、跳过构建和单文件失败重试。查看全部参数：
@@ -155,7 +159,7 @@ GitHub Pages 可以托管本项目的静态构建结果，仓库站点地址通�
 https://<github-user>.github.io/<repository>/
 ```
 
-本仓库的地图原图和 WebP 衍生图不会提交到 `main`，因此仅靠 GitHub Actions checkout 无法生成完整站点。若使用 GitHub Pages，应从包含本地地图素材的环境执行构建，并将完整 `dist/` 发布到专用 `gh-pages` 分支；这样可以继续保持 `main` 只提交源代码。
+地图原图和 WebP 衍生图已包含在仓库中，因此 GitHub Actions checkout 后可以直接安装依赖并执行 `npm run build:pages`，再将生成的完整 `dist/` 发布到 GitHub Pages。
 
 项目使用相对资源地址，可以部署在 GitHub Pages 的仓库子路径下，无需修改前端路由或资源前缀。
 
@@ -172,12 +176,10 @@ https://<github-user>.github.io/<repository>/
 
 ## Git 提交范围
 
-仓库只提交源代码、项目配置和文档截图。以下本地内容不会进入 Git：
+仓库包含源代码、项目配置、地图原图、生成后的预览/缩略图和文档截图。以下本地内容不会进入 Git：
 
-- `assets/` 中的高清原图。
-- `previews/` 和 `thumbs/` 中的衍生图片。
 - `dist/` 构建产物。
 - `node_modules/` 依赖目录。
 - `.env`、密钥、日志和压缩包。
 
-首次 clone 后需要自行准备 `assets/maps/` 中的原图，再执行 `npm run maps:generate`。
+clone 后可以直接执行 `npm install && npm run build`；GitHub Pages 使用 `npm run build:pages`。更新地图素材后再运行 `npm run maps:generate`。

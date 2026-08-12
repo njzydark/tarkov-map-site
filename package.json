@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "rsbuild dev",
     "build": "rsbuild build",
+    "build:pages": "rsbuild build --env-mode pages",
     "preview": "rsbuild preview",
     "maps:generate": "node scripts/generate-maps.mjs",
-    "deploy:s3": "node scripts/deploy-s3.mjs",
-    "deploy:s3:all": "node scripts/deploy-s3.mjs --include-originals"
+    "deploy:s3": "node scripts/deploy-s3.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
