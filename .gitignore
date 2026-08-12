@@ -1,0 +1,28 @@
+# Dependencies and build output
+node_modules/
+dist/
+
+# Local map source material and generated derivatives
+assets/
+previews/
+thumbs/
+*.png
+*.jpg
+*.jpeg
+*.webp
+
+# Local credentials and environment overrides
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local archives, logs, and OS/editor files
+*.zip
+*.tar
+*.tar.gz
+*.log
+.DS_Store
+.idea/
+.vscode/

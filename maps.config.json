@@ -1,0 +1,40 @@
+{
+  "order": [
+    "ground-zero-3d",
+    "ground-zero-2d",
+    "customs-3d",
+    "factory-3d",
+    "woods-3d",
+    "interchange-3d",
+    "interchange-ultra-3d",
+    "shoreline-3d",
+    "shoreline-resort",
+    "reserve-3d",
+    "reserve-tunnels-3d",
+    "lighthouse-vert-3d",
+    "lighthouse-iso-3d",
+    "streets-of-tarkov-3d",
+    "streets-of-tarkov-lexos-minefield",
+    "labyrinth-3d",
+    "labs"
+  ],
+  "maps": {
+    "ground-zero-3d": { "group": "中心区", "title": "中心区 3D" },
+    "ground-zero-2d": { "group": "中心区", "title": "中心区 2D" },
+    "customs-3d": { "group": "海关", "title": "海关 3D" },
+    "factory-3d": { "group": "工厂", "title": "工厂 3D" },
+    "woods-3d": { "group": "森林", "title": "森林 3D" },
+    "interchange-3d": { "group": "立交桥", "title": "立交桥 3D" },
+    "interchange-ultra-3d": { "group": "立交桥", "title": "立交桥－商场 3D" },
+    "shoreline-3d": { "group": "海岸线", "title": "海岸线 3D" },
+    "shoreline-resort": { "group": "海岸线", "title": "海岸线－疗养院内部" },
+    "reserve-3d": { "group": "储备站", "title": "储备站 3D" },
+    "reserve-tunnels-3d": { "group": "储备站", "title": "储备站－地下通道 3D" },
+    "lighthouse-vert-3d": { "group": "灯塔", "title": "灯塔（垂直地图）3D" },
+    "lighthouse-iso-3d": { "group": "灯塔", "title": "灯塔（水平地图）3D" },
+    "streets-of-tarkov-3d": { "group": "街区", "title": "街区 3D" },
+    "streets-of-tarkov-lexos-minefield": { "group": "街区", "title": "街区 4S 店雷区" },
+    "labyrinth-3d": { "group": "迷宫", "title": "迷宫 3D" },
+    "labs": { "group": "实验室", "title": "实验室" }
+  }
+}
