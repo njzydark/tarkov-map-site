@@ -153,13 +153,19 @@ npm run deploy:s3 -- --help
 
 ## 可选：GitHub Pages
 
-GitHub Pages 可以托管本项目的静态构建结果，仓库站点地址通常为：
+仓库包含 GitHub Pages 官方 Actions 工作流 [`.github/workflows/pages.yml`](.github/workflows/pages.yml)。推送到 `main` 后会自动：
+
+1. 使用 Node.js 22 安装锁定依赖。
+2. 执行 `npm run build:pages` 生成包含高清原图的完整站点。
+3. 上传 Pages artifact 并发布。
+
+也可以在仓库 Actions 页面手动触发 `Deploy GitHub Pages`。站点地址通常为：
 
 ```text
 https://<github-user>.github.io/<repository>/
 ```
 
-地图原图和 WebP 衍生图已包含在仓库中，因此 GitHub Actions checkout 后可以直接安装依赖并执行 `npm run build:pages`，再将生成的完整 `dist/` 发布到 GitHub Pages。
+首次发布时，工作流会尝试自动启用 GitHub Pages。若仓库或组织策略禁止自动启用，请在仓库 **Settings → Pages → Build and deployment → Source** 中选择 **GitHub Actions**，再重新运行工作流。
 
 项目使用相对资源地址，可以部署在 GitHub Pages 的仓库子路径下，无需修改前端路由或资源前缀。
 
