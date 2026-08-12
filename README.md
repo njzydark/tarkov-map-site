@@ -2,6 +2,8 @@
 
 一个面向《逃离塔科夫》地图的沉浸式 Web 查看器，使用 Rsbuild、React、TypeScript 和 Base UI 构建。项目完全运行在浏览器中，不依赖应用后端。
 
+在线体验：[https://njzydark.github.io/tarkov-map-site/](https://njzydark.github.io/tarkov-map-site/)
+
 ## 项目截图
 
 ![地图查看器主界面](docs/screenshots/viewer.png)
@@ -11,6 +13,7 @@
 ## 功能
 
 - 按区域组织地图，同一地图的 2D、3D 和内部结构版本归入同组。
+- 响应式适配手机和平板，针对小屏布局、触控操作和安全区域进行优化。
 - 桌面端浮动地图菜单和移动端抽屉，选择地图后自动收起。
 - 快速预览与高清原图双向切换，切换过程中保持当前视野不跳变。
 - 鼠标拖拽、滚轮缩放、双击缩放、手机双指缩放。
