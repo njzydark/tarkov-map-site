@@ -111,9 +111,7 @@ button:focus-visible, input:focus-visible, [role="slider"]:focus-visible { outli
   max-height: none;
   transform-origin: 0 0;
   pointer-events: none;
-  contain: strict;
-  backface-visibility: hidden;
-  will-change: transform;
+  contain: layout paint;
 }
 .map-layer.is-pending { opacity: 0; }
 .map-layer.is-current { opacity: 1; animation: layer-in .16s ease-out; }
